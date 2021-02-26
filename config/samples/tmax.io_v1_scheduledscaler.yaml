@@ -1,0 +1,13 @@
+apiVersion: tmax.io/v1
+kind: ScheduledScaler
+metadata:
+  name: scheduledscaler-sample
+spec:
+  target:
+    name: test-deployment
+  schedule:
+    - type: fixed
+      runat: '10 * * * * *'
+      replicas: 3
+      
+

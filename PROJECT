@@ -1,0 +1,10 @@
+layout: go.kubebuilder.io/v2
+projectName: scheduled-scaler-operator
+repo: github.com/tmax-cloud/scheduled-scaler-operator
+resources:
+- group: tmax.io
+  kind: ScheduledScaler
+  version: v1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}

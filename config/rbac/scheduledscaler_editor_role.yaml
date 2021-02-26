@@ -1,0 +1,24 @@
+# permissions for end users to edit scheduledscalers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: scheduledscaler-editor-role
+rules:
+- apiGroups:
+  - tmax.io
+  resources:
+  - scheduledscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - tmax.io
+  resources:
+  - scheduledscalers/status
+  verbs:
+  - get
