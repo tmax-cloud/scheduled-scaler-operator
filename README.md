@@ -2,7 +2,34 @@
 The Scheduled-Scaler operator is a controller for CRD ScheduledScaler. With ScheduledScaler resource, you can add Pod scaling schedules in k8s.
 
 ## Install
+1. On your local machine, clone this repository
+   ```bash
+   git clone https://github.com/tmax-cloud/scheduled-scaler-operator.git
+   cd scheduled-scaler-operator
+   ```
 
+2. Use command of Makefile: deploy
+   ```bash
+   make deploy
+   ```
+
+## Uninstall
+1. Use command of Makefile: undeploy
+   ```bash
+   make undeploy
+   ```
+
+2. If the command is stuck and not finished, stop the command (ctrl + c)
+   
+3. Check if namespace scheduled-scaler-operator-system is terminating
+   ```bash
+   kubectl get namespace
+   ```
+
+4. If the namespace is still terminating, execute `remove_namespace.sh`
+   ```bash
+   bash remove_namespace.sh
+   ```
 ## Usage
 1. Sample YAML:
    ```yaml
