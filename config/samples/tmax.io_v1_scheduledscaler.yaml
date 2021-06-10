@@ -6,8 +6,9 @@ spec:
   target:
     name: test-deployment
   schedule:
-    - type: fixed
+    - type: range
       runat: '10 * * * * *'
-      replicas: 3
+      minReplicas: 1
+      maxReplicas: 3
       
 
