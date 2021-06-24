@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,6 +35,8 @@ type Schedule struct {
 	Replicas    *int32 `json:"replicas,omitempty"`
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	MaxReplicas int32  `json:"maxReplicas,omitempty"`
+	// +kubebuilder:validation:Enum:=cpu;memory
+	Metric v1.ResourceName `json:"metric,omitempty"`
 }
 
 // ScheduledScalerSpec defines the desired state of ScheduledScaler

@@ -6,7 +6,6 @@ import (
 	"math/rand"
 
 	"k8s.io/api/autoscaling/v2beta2"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -42,7 +41,7 @@ func (s *RangeScaler) Run() {
 				{
 					Type: v2beta2.ResourceMetricSourceType,
 					Resource: &v2beta2.ResourceMetricSource{
-						Name: v1.ResourceCPU,
+						Name: s.scaler.schedule.Metric,
 						Target: v2beta2.MetricTarget{
 							Type:               v2beta2.UtilizationMetricType,
 							AverageUtilization: &utilization,

@@ -54,6 +54,13 @@ spec:
                   maxReplicas:
                     format: int32
                     type: integer
+                  metric:
+                    description: ResourceName is the name identifying various resources
+                      in a ResourceList.
+                    enum:
+                    - cpu
+                    - memory
+                    type: string
                   minReplicas:
                     format: int32
                     type: integer
