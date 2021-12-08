@@ -21,39 +21,31 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
 	"github.com/tmax-cloud/scheduled-scaler-operator/internal/util"
 	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/cron"
-	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/scaler"
 )
 
 // ScheduledScalerReconciler reconciles a ScheduledScaler object
 type ScheduledScalerReconciler struct {
 	client.Client
-	Log          logr.Logger
-	Scheme       *runtime.Scheme
-	scheduleCron map[string]*cron.Cron
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	cronManager *cron.CronManager
 }
 
 // +kubebuilder:rbac:groups=tmax.io,resources=scheduledscalers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=tmax.io,resources=scheduledscalers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
-
 func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("scheduledscaler", req.NamespacedName)
-	namespacedNameString := fmt.Sprintf("%s-%s", req.Namespace, req.Name)
 
 	// get scheduled scaler resource
 	scheduledScaler := &tmaxiov1.ScheduledScaler{}
@@ -78,16 +70,7 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	} else {
 		if util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
 			log.Info("deleting CR")
-			targetCron, ok := r.scheduleCron[namespacedNameString]
-			if ok {
-				log.Info("stop cron")
-				targetCron.Stop()
-				delete(r.scheduleCron, namespacedNameString)
-				if err := r.deleteHpa(scheduledScaler); err != nil {
-					log.Error(err, "Error occured during deleting hpa")
-				}
-			}
-
+			r.cronManager.RemoveCron(req.Namespace, req.Name)
 			scheduledScaler.ObjectMeta.Finalizers = util.RemoveString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(ctx, scheduledScaler); err != nil {
 				return ctrl.Result{}, err
@@ -106,7 +89,7 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.updateCron(scheduledScaler); err != nil {
+	if err := r.cronManager.UpdateCron(scheduledScaler); err != nil {
 		log.Error(err, "Couldn't update cron")
 		r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusFailed, "Scheduled Scaler is failed", "InternalLogicError")
 		return ctrl.Result{}, err
@@ -119,46 +102,8 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 }
 
 func (r *ScheduledScalerReconciler) Init() *ScheduledScalerReconciler {
-	r.scheduleCron = make(map[string]*cron.Cron)
+	r.cronManager = cron.NewCronManager(r.Client)
 	return r
-}
-
-func (r *ScheduledScalerReconciler) updateCron(scheduledScaler *tmaxiov1.ScheduledScaler) error {
-	key := fmt.Sprintf("%s-%s", scheduledScaler.Namespace, scheduledScaler.Name)
-	previousCron, exist := r.scheduleCron[key]
-	if exist {
-		previousCron.Stop()
-	}
-
-	if err := r.deleteHpa(scheduledScaler); err != nil {
-		return fmt.Errorf("Couldn't delete previous hpa during update cron by %v", err)
-	}
-
-	tz := "none"
-	if scheduledScaler.Spec.TimeZone != "" {
-		tz = scheduledScaler.Spec.TimeZone
-	}
-	newCron := cron.NewCron(tz)
-	r.scheduleCron[key] = newCron
-	targetDeploy, err := getTargetDeployment(scheduledScaler.Spec.Target.Name, scheduledScaler.Namespace)
-	if err != nil {
-		return err
-	}
-
-	for _, schedule := range scheduledScaler.Spec.Schedule {
-		scalerImpl, err := scaler.NewScaler(scheduledScaler.Name, schedule, targetDeploy)
-		if err != nil {
-			return err
-		}
-
-		newCron.Push(schedule.Runat, scalerImpl.Run)
-	}
-
-	if err := newCron.Start(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (r *ScheduledScalerReconciler) updateStatus(cl client.Client, origin *tmaxiov1.ScheduledScaler, status tmaxiov1.Status, msg string, reason string) error {
@@ -175,39 +120,6 @@ func (r *ScheduledScalerReconciler) updateStatus(cl client.Client, origin *tmaxi
 	}
 
 	return nil
-}
-
-func (r *ScheduledScalerReconciler) deleteHpa(scheduledScaler *tmaxiov1.ScheduledScaler) error {
-	hpaList := &autoscaling.HorizontalPodAutoscalerList{}
-	selector := labels.SelectorFromSet(map[string]string{
-		"owner": scheduledScaler.Name,
-	})
-
-	if err := r.Client.List(context.Background(), hpaList, &client.ListOptions{LabelSelector: selector}); err != nil {
-		return fmt.Errorf("couldn't list hpas: %v", err)
-	}
-
-	for _, hpa := range hpaList.Items {
-		if err := r.Client.Delete(context.Background(), &hpa); err != nil {
-			return fmt.Errorf("couldn't delete hpa named %s: %v", hpa.Name, err)
-		}
-	}
-
-	return nil
-}
-
-func getTargetDeployment(name, namespace string) (*appsv1.Deployment, error) {
-	cl, err := client.New(config.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		return nil, err
-	}
-
-	targetDeploy := &appsv1.Deployment{}
-	if err := cl.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, targetDeploy); err != nil {
-		return nil, err
-	}
-
-	return targetDeploy, nil
 }
 
 func (r *ScheduledScalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
