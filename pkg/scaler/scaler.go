@@ -39,11 +39,11 @@ func NewScaler(name string, schedule tmaxiov1.Schedule, targetDeploy *appsv1.Dep
 	switch schedule.Type {
 	case "fixed":
 		scaler = &FixedScaler{
-			scaler: scalerImpl,
+			scalerImpl,
 		}
 	case "range":
 		scaler = &RangeScaler{
-			scaler: scalerImpl,
+			scalerImpl,
 		}
 	}
 

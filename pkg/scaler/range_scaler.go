@@ -12,7 +12,7 @@ import (
 
 // RangeScaler is ..
 type RangeScaler struct {
-	scaler ScalerImpl
+	ScalerImpl
 }
 
 func (s *RangeScaler) Run() {
@@ -21,23 +21,23 @@ func (s *RangeScaler) Run() {
 	b := make([]byte, 6)
 	rand.Read(b)
 
-	hpaName := fmt.Sprintf("%s-%s-%x", s.scaler.scheduledScaler, s.scaler.target.Name, b)
+	hpaName := fmt.Sprintf("%s-%s-%x", s.scheduledScaler, s.target.Name, b)
 	hpa := &v2beta2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hpaName,
-			Namespace: s.scaler.target.Namespace,
+			Namespace: s.target.Namespace,
 			Labels: map[string]string{
-				"owner": s.scaler.scheduledScaler,
+				"owner": s.scheduledScaler,
 			},
 		},
 		Spec: v2beta2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: v2beta2.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
-				Name:       s.scaler.target.Name,
+				Name:       s.target.Name,
 			},
-			MinReplicas: s.scaler.schedule.MinReplicas,
-			MaxReplicas: s.scaler.schedule.MaxReplicas,
+			MinReplicas: s.schedule.MinReplicas,
+			MaxReplicas: s.schedule.MaxReplicas,
 			Metrics: []v2beta2.MetricSpec{
 				{
 					Type: v2beta2.ResourceMetricSourceType,
@@ -53,7 +53,7 @@ func (s *RangeScaler) Run() {
 		},
 	}
 
-	if err := s.scaler.cl.Create(context.Background(), hpa); err != nil {
+	if err := s.cl.Create(context.Background(), hpa); err != nil {
 		logger.Error(err, "Failed to create hpa in range scaler")
 		return
 	}

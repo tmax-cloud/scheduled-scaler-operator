@@ -8,14 +8,14 @@ import (
 
 // FixedScaler is ...
 type FixedScaler struct {
-	scaler ScalerImpl
+	ScalerImpl
 }
 
 func (s *FixedScaler) Run() {
 	logger.Info("FixedScaler start running")
-	targetDeploy := s.scaler.target.DeepCopy()
-	targetDeploy.Spec.Replicas = s.scaler.schedule.Replicas
-	if err := s.scaler.cl.Patch(context.Background(), targetDeploy, client.MergeFrom(s.scaler.target)); err != nil {
+	targetDeploy := s.target.DeepCopy()
+	targetDeploy.Spec.Replicas = s.schedule.Replicas
+	if err := s.cl.Patch(context.Background(), targetDeploy, client.MergeFrom(s.target)); err != nil {
 		logger.Error(err, "Patching deployment error in FixedScaler")
 		return
 	}

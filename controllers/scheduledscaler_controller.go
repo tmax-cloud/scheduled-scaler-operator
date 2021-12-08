@@ -32,8 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
-	"github.com/tmax-cloud/scheduled-scaler-operator/controllers/scaler"
+	"github.com/tmax-cloud/scheduled-scaler-operator/internal/util"
 	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/cron"
+	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/scaler"
 )
 
 // ScheduledScalerReconciler reconciles a ScheduledScaler object
@@ -53,28 +54,21 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	ctx := context.Background()
 	log := r.Log.WithValues("scheduledscaler", req.NamespacedName)
 	namespacedNameString := fmt.Sprintf("%s-%s", req.Namespace, req.Name)
-	if r.scheduleCron == nil {
-		r.scheduleCron = make(map[string]*cron.Cron)
-	}
 
 	// get scheduled scaler resource
 	scheduledScaler := &tmaxiov1.ScheduledScaler{}
 	if err := r.Get(ctx, req.NamespacedName, scheduledScaler); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("Not found error")
-			return ctrl.Result{}, nil
+			log.Error(err, fmt.Sprintf("Couldn't find %s ScheduledScaler", req.NamespacedName))
+			return ctrl.Result{}, err
 		}
 		log.Error(err, "Unable to fetch resource ScheduledScaler")
 		return ctrl.Result{}, err
 	}
 
-	if scheduledScaler.Status.Phase == string(tmaxiov1.StatusFailed) {
-		return ctrl.Result{}, nil
-	}
-
 	myFinalizerName := "finalizer.scheduledscaler.tmax.io"
 	if scheduledScaler.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !containsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
+		if !util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
 			// add finalizer to remove cron after deleting CR
 			scheduledScaler.ObjectMeta.Finalizers = append(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(ctx, scheduledScaler); err != nil {
@@ -82,7 +76,7 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 			}
 		}
 	} else {
-		if containsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
+		if util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
 			log.Info("deleting CR")
 			targetCron, ok := r.scheduleCron[namespacedNameString]
 			if ok {
@@ -94,7 +88,7 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 				}
 			}
 
-			scheduledScaler.ObjectMeta.Finalizers = removeString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
+			scheduledScaler.ObjectMeta.Finalizers = util.RemoveString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(ctx, scheduledScaler); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -103,20 +97,30 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		}
 	}
 
+	if scheduledScaler.Status.Phase == string(tmaxiov1.StatusFailed) {
+		return ctrl.Result{}, nil
+	}
+
 	if scheduledScaler.Status.Phase == "" {
-		UpdateStatus(r.Client, scheduledScaler, tmaxiov1.StatusCreating, "Scheduled Scaler is creating", "InitializingProcess")
+		r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusCreating, "Scheduled Scaler is creating", "InitializingProcess")
+		return ctrl.Result{}, nil
 	}
 
 	if err := r.updateCron(scheduledScaler); err != nil {
 		log.Error(err, "Couldn't update cron")
-		UpdateStatus(r.Client, scheduledScaler, tmaxiov1.StatusFailed, "Scheduled Scaler is failed", "InternalLogicError")
+		r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusFailed, "Scheduled Scaler is failed", "InternalLogicError")
 		return ctrl.Result{}, err
 	}
 
-	UpdateStatus(r.Client, scheduledScaler, tmaxiov1.StatusRunning, "Scheduled Scaler is running", "Running")
+	r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusRunning, "Scheduled Scaler is running", "Running")
 	log.Info("Reconciling done")
 
 	return ctrl.Result{}, nil
+}
+
+func (r *ScheduledScalerReconciler) Init() *ScheduledScalerReconciler {
+	r.scheduleCron = make(map[string]*cron.Cron)
+	return r
 }
 
 func (r *ScheduledScalerReconciler) updateCron(scheduledScaler *tmaxiov1.ScheduledScaler) error {
@@ -152,6 +156,22 @@ func (r *ScheduledScalerReconciler) updateCron(scheduledScaler *tmaxiov1.Schedul
 
 	if err := newCron.Start(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (r *ScheduledScalerReconciler) updateStatus(cl client.Client, origin *tmaxiov1.ScheduledScaler, status tmaxiov1.Status, msg string, reason string) error {
+	originObject := client.MergeFrom(origin)
+	patch := origin.DeepCopy()
+	patch.Status = tmaxiov1.ScheduledScalerStatus{
+		Phase:   string(status),
+		Message: msg,
+		Reason:  reason,
+	}
+
+	if err := r.Client.Status().Patch(context.TODO(), patch, originObject); err != nil {
+		return fmt.Errorf("Couldn't update status: %v", err)
 	}
 
 	return nil
@@ -194,24 +214,4 @@ func (r *ScheduledScalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tmaxiov1.ScheduledScaler{}).
 		Complete(r)
-}
-
-// Helper functions to check and remove string from a slice of strings.
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
-func removeString(slice []string, s string) (result []string) {
-	for _, item := range slice {
-		if item == s {
-			continue
-		}
-		result = append(result, item)
-	}
-	return
 }
