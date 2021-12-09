@@ -38,18 +38,14 @@ func (m *CronManager) UpdateCron(scheduledScaler *tmaxiov1.ScheduledScaler) erro
 	}
 	newCron := NewCron(tz)
 	m.scheduleCron[key] = newCron
-	targetDeploy, err := internal.GetTargetDeployment(m.Client, scheduledScaler.Spec.Target.Name, scheduledScaler.Namespace)
-	if err != nil {
-		return err
-	}
 
 	for _, schedule := range scheduledScaler.Spec.Schedule {
-		scalerImpl, err := scaler.NewScaler(scheduledScaler.Name, schedule, targetDeploy)
+		scalerImpl, err := scaler.NewScaler(m.Client, scheduledScaler.Name, scheduledScaler.Namespace, scheduledScaler.Spec.Target.Name, schedule)
 		if err != nil {
 			return err
 		}
 
-		newCron.Push(schedule.Runat, scalerImpl.Run)
+		newCron.Push(scalerImpl)
 	}
 
 	if err := newCron.Start(); err != nil {

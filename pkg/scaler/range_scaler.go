@@ -21,11 +21,11 @@ func (s *RangeScaler) Run() {
 	b := make([]byte, 6)
 	rand.Read(b)
 
-	hpaName := fmt.Sprintf("%s-%s-%x", s.scheduledScaler, s.target.Name, b)
+	hpaName := fmt.Sprintf("%s-%s-%x", s.scheduledScaler, s.target, b)
 	hpa := &v2beta2.HorizontalPodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hpaName,
-			Namespace: s.target.Namespace,
+			Namespace: s.namespace,
 			Labels: map[string]string{
 				"owner": s.scheduledScaler,
 			},
@@ -34,9 +34,9 @@ func (s *RangeScaler) Run() {
 			ScaleTargetRef: v2beta2.CrossVersionObjectReference{
 				APIVersion: "apps/v1",
 				Kind:       "Deployment",
-				Name:       s.target.Name,
+				Name:       s.target,
 			},
-			MinReplicas: s.schedule.MinReplicas,
+			MinReplicas: &s.schedule.MinReplicas,
 			MaxReplicas: s.schedule.MaxReplicas,
 			Metrics: []v2beta2.MetricSpec{
 				{

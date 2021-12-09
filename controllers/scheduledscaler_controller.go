@@ -51,8 +51,8 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	scheduledScaler := &tmaxiov1.ScheduledScaler{}
 	if err := r.Get(ctx, req.NamespacedName, scheduledScaler); err != nil {
 		if errors.IsNotFound(err) {
-			log.Error(err, fmt.Sprintf("Couldn't find %s ScheduledScaler", req.NamespacedName))
-			return ctrl.Result{}, err
+			log.Info(fmt.Sprintf("Couldn't find %s ScheduledScaler", req.NamespacedName))
+			return ctrl.Result{}, nil
 		}
 		log.Error(err, "Unable to fetch resource ScheduledScaler")
 		return ctrl.Result{}, err
@@ -85,7 +85,7 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	}
 
 	if scheduledScaler.Status.Phase == "" {
-		r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusCreating, "Scheduled Scaler is creating", "InitializingProcess")
+		r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusRunning, "Scheduled Scaler is running", "Running")
 		return ctrl.Result{}, nil
 	}
 
@@ -95,7 +95,6 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		return ctrl.Result{}, err
 	}
 
-	r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusRunning, "Scheduled Scaler is running", "Running")
 	log.Info("Reconciling done")
 
 	return ctrl.Result{}, nil

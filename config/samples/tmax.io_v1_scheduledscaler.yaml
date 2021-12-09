@@ -7,7 +7,10 @@ spec:
     name: test-deployment
   schedule:
     - type: fixed
+      runat: '40 * * * * *'
+      replicas: 6
+    - type: fixed
       runat: '10 * * * * *'
-      replicas: 5
+      replicas: 1
       
 

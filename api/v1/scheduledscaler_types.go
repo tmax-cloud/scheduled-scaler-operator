@@ -31,8 +31,8 @@ type Schedule struct {
 	// +kubebuilder:validation:Enum:=fixed;range
 	Type        string `json:"type"`
 	Runat       string `json:"runat"`
-	Replicas    *int32 `json:"replicas,omitempty"`
-	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	Replicas    int32  `json:"replicas,omitempty"`
+	MinReplicas int32  `json:"minReplicas,omitempty"`
 	MaxReplicas int32  `json:"maxReplicas,omitempty"`
 }
 
