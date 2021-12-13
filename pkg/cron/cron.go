@@ -4,23 +4,24 @@ import (
 	"time"
 
 	robfigCron "github.com/robfig/cron"
+	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/scaler"
 )
 
 type Cron struct {
 	timeZone string
 	cronImpl *robfigCron.Cron
-	jobs     map[string]func()
+	scalers  []scaler.Scaler
 }
 
 func NewCron(timeZone string) *Cron {
 	return &Cron{
 		timeZone: timeZone,
-		jobs:     make(map[string]func()),
+		scalers:  make([]scaler.Scaler, 0),
 	}
 }
 
-func (c *Cron) Push(runat string, job func()) {
-	c.jobs[runat] = job
+func (c *Cron) Push(scaler scaler.Scaler) {
+	c.scalers = append(c.scalers, scaler)
 }
 
 func (c *Cron) Start() error {
@@ -48,8 +49,8 @@ func (c *Cron) init() error {
 		c.cronImpl = robfigCron.NewWithLocation(tz)
 	}
 
-	for runat, job := range c.jobs {
-		c.cronImpl.AddFunc(runat, job)
+	for _, scaler := range c.scalers {
+		c.cronImpl.AddJob(scaler.RunAt(), scaler)
 	}
 	return nil
 }
