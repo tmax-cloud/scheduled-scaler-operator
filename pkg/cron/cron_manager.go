@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
-	"github.com/tmax-cloud/scheduled-scaler-operator/internal"
+	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/hpamanager"
 	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/scaler"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,7 +28,7 @@ func (m *CronManager) UpdateCron(scheduledScaler *tmaxiov1.ScheduledScaler) erro
 		previousCron.Stop()
 	}
 
-	if err := internal.DeleteHpaByOwner(m.Client, scheduledScaler.Name); err != nil {
+	if err := hpamanager.DeleteHpa(m.Client, hpamanager.GetHpaName(scheduledScaler.Name), scheduledScaler.Namespace); err != nil {
 		return fmt.Errorf("Couldn't delete previous hpa during update cron by %v", err)
 	}
 
@@ -64,7 +64,7 @@ func (m *CronManager) RemoveCron(namespace, name string) error {
 
 	targetCron.Stop()
 	delete(m.scheduleCron, key)
-	if err := internal.DeleteHpaByOwner(m.Client, name); err != nil {
+	if err := hpamanager.DeleteHpa(m.Client, hpamanager.GetHpaName(name), namespace); err != nil {
 		return err
 	}
 
