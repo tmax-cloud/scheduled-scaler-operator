@@ -15,8 +15,8 @@ func (s *RangeScaler) Run() {
 		Namespace:           s.namespace,
 		Target:              s.target,
 		ScheduledScalerName: s.scheduledScaler,
-		MinReplicas:         &s.schedule.MinReplicas,
-		MaxReplicas:         &s.schedule.MaxReplicas,
+		MinReplicas:         s.schedule.MinReplicas,
+		MaxReplicas:         s.schedule.MaxReplicas,
 	}); err != nil {
 		logger.Error(err, "Creating Hpa failed in Range scaler")
 		return

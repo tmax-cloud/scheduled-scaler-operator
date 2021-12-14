@@ -10,7 +10,7 @@ var logger = logf.Log.WithName("scaler")
 
 // Scaler is ...
 type Scaler interface {
-	RunAt() string
+	Schedule() tmaxiov1.Schedule
 	Run()
 }
 
@@ -22,8 +22,8 @@ type ScalerImpl struct {
 	cl              client.Client
 }
 
-func (s *ScalerImpl) RunAt() string {
-	return s.schedule.Runat
+func (s *ScalerImpl) Schedule() tmaxiov1.Schedule {
+	return s.schedule
 }
 
 func NewScaler(cl client.Client, name, namespace, targetDeploy string, schedule tmaxiov1.Schedule) (Scaler, error) {

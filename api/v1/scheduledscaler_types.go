@@ -31,9 +31,9 @@ type Schedule struct {
 	// +kubebuilder:validation:Enum:=fixed;range
 	Type        string `json:"type"`
 	Runat       string `json:"runat"`
-	Replicas    int32  `json:"replicas,omitempty"`
-	MinReplicas int32  `json:"minReplicas,omitempty"`
-	MaxReplicas int32  `json:"maxReplicas,omitempty"`
+	Replicas    *int32 `json:"replicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
 }
 
 // ScheduledScalerSpec defines the desired state of ScheduledScaler
@@ -48,9 +48,9 @@ type ScheduledScalerSpec struct {
 
 // ScheduledScalerStatus defines the observed state of ScheduledScaler
 type ScheduledScalerStatus struct {
-	Phase   string `json:"phase,omitempty"`
+	Phase   Status `json:"phase,omitempty"`
 	Message string `json:"message,omitempty"`
-	Reason  string `json:"reason,omitempty"`
+	Reason  Reason `json:"reason,omitempty"`
 }
 
 // +kubebuilder:object:root=true

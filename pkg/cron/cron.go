@@ -50,7 +50,7 @@ func (c *Cron) init() error {
 	}
 
 	for _, scaler := range c.scalers {
-		c.cronImpl.AddJob(scaler.RunAt(), scaler)
+		c.cronImpl.AddJob(scaler.Schedule().Runat, scaler)
 	}
 	return nil
 }

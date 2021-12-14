@@ -26,7 +26,7 @@ func (s *FixedScaler) Run() {
 		return
 	}
 	patch := targetDeploy.DeepCopy()
-	patch.Spec.Replicas = &replicas
+	patch.Spec.Replicas = replicas
 	if err = s.cl.Patch(context.Background(), patch, client.MergeFrom(targetDeploy)); err != nil {
 		logger.Error(err, "Patching deployment error in FixedScaler")
 		return
