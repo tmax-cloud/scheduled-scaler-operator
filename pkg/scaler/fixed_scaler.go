@@ -1,10 +1,7 @@
 package scaler
 
 import (
-	"context"
-
 	"github.com/tmax-cloud/scheduled-scaler-operator/internal/k8s"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // FixedScaler is ...
@@ -24,9 +21,8 @@ func (s *FixedScaler) Run() {
 		logger.Error(err, "Getting deployment error in FixedScaler")
 		return
 	}
-	patch := targetDeploy.DeepCopy()
-	patch.Spec.Replicas = replicas
-	if err = s.cl.Patch(context.Background(), patch, client.MergeFrom(targetDeploy)); err != nil {
+
+	if err = k8s.ScaleDeploymentReplicas(s.cl, targetDeploy, replicas); err != nil {
 		logger.Error(err, "Patching deployment error in FixedScaler")
 		return
 	}

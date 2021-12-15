@@ -16,3 +16,14 @@ func GetTargetDeployment(cl client.Client, name, namespace string) (*appsv1.Depl
 
 	return targetDeploy, nil
 }
+
+func ScaleDeploymentReplicas(cl client.Client, deploy *appsv1.Deployment, replicas *int32) error {
+	origin := client.MergeFrom(deploy)
+	patch := deploy.DeepCopy()
+	patch.Spec.Replicas = replicas
+	if err := cl.Patch(context.Background(), patch, origin); err != nil {
+		return err
+	}
+
+	return nil
+}
