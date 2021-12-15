@@ -28,8 +28,9 @@ import (
 
 	tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
 	"github.com/tmax-cloud/scheduled-scaler-operator/internal/util"
+	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/apimanager"
+	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/cache"
 	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/cron"
-	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/validator"
 )
 
 // ScheduledScalerReconciler reconciles a ScheduledScaler object
@@ -37,6 +38,7 @@ type ScheduledScalerReconciler struct {
 	client.Client
 	Log         logr.Logger
 	Scheme      *runtime.Scheme
+	cache       *cache.ScheduledScalerCache
 	cronManager *cron.CronManager
 }
 
@@ -52,6 +54,7 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	scheduledScaler := &tmaxiov1.ScheduledScaler{}
 	if err := r.Get(ctx, req.NamespacedName, scheduledScaler); err != nil {
 		if errors.IsNotFound(err) {
+			// Not-found error isn't handled by error, because it is always occured in deleting phase
 			log.Info(fmt.Sprintf("Couldn't find %s ScheduledScaler", req.NamespacedName))
 			return ctrl.Result{}, nil
 		}
@@ -59,10 +62,24 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		return ctrl.Result{}, err
 	}
 
+	// set deleting flag to default: false
+	isDeleting := false
+	// deferring to manage cache
+	defer func() {
+		if isDeleting {
+			r.cache.Remove(scheduledScaler)
+			return
+		} else if apimanager.GetNamespacedName(*scheduledScaler) == "" {
+			return
+		}
+		r.cache.Put(scheduledScaler)
+	}()
+
+	// handle finalizer to check deleting event
 	myFinalizerName := "finalizer.scheduledscaler.tmax.io"
 	if scheduledScaler.ObjectMeta.DeletionTimestamp.IsZero() {
 		if !util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
-			// add finalizer to remove cron after deleting CR
+			// add finalizer if not set to remove cron after deleting CR
 			scheduledScaler.ObjectMeta.Finalizers = append(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(ctx, scheduledScaler); err != nil {
 				return ctrl.Result{}, err
@@ -70,8 +87,9 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		}
 	} else {
 		if util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
+			isDeleting = true // set deleting flag to remove scsc from cache
 			log.Info("deleting CR")
-			r.cronManager.RemoveCron(req.Namespace, req.Name)
+			r.cronManager.RemoveCron(req.Namespace, req.Name) // remove cron of scsc
 			scheduledScaler.ObjectMeta.Finalizers = util.RemoveString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(ctx, scheduledScaler); err != nil {
 				return ctrl.Result{}, err
@@ -81,35 +99,78 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		}
 	}
 
+	// When reconciled scsc is failed status and has reason InvalidSpecError, validate it again to check if it is modified
 	if scheduledScaler.Status.Phase == tmaxiov1.StatusFailed && scheduledScaler.Status.Reason == tmaxiov1.ValidationFailedError {
-		if !validator.NewValidator(scheduledScaler).Validate() {
+		if !apimanager.Validate(scheduledScaler) {
 			return ctrl.Result{}, nil
 		}
 	}
 
+	// When scsc has no status(creating) or failed status, update status to updating status to reconcile again
 	if scheduledScaler.Status.Phase == "" || scheduledScaler.Status.Phase == tmaxiov1.StatusFailed {
-		r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusUpdating, "Scheduled Scaler is running", tmaxiov1.NeedToReconcile)
+		if err := apimanager.UpdateStatus(
+			r.Client,
+			scheduledScaler,
+			tmaxiov1.ScheduledScalerStatus{
+				Phase:   tmaxiov1.StatusUpdating,
+				Message: "Scheduled Scaler is running",
+				Reason:  tmaxiov1.NeedToReconcile,
+			}); err != nil {
+			log.Error(err, "Updating status failed")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, nil
 	}
 
+	// When scsc has updating status, do reconciling logic: validate scsc and update cron
 	if scheduledScaler.Status.Phase == tmaxiov1.StatusUpdating {
-		if !validator.NewValidator(scheduledScaler).Validate() {
+		if !apimanager.Validate(scheduledScaler) {
 			r.cronManager.RemoveCron(req.Name, req.Namespace)
-			r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusFailed, "Scheduled Scaler spec is invalid", tmaxiov1.ValidationFailedError)
-			return ctrl.Result{}, fmt.Errorf("Invalid Spec is entered")
+			if err := apimanager.UpdateStatus(r.Client, scheduledScaler, tmaxiov1.ScheduledScalerStatus{
+				Phase:   tmaxiov1.StatusFailed,
+				Message: "Scheduled Scaler spec is invalid",
+				Reason:  tmaxiov1.ValidationFailedError,
+			}); err != nil {
+				log.Error(err, "Updating status failed")
+				return ctrl.Result{}, nil
+			}
+			log.Error(fmt.Errorf("Invalid Spec is entered"), "Invalid Spec is entered")
+			return ctrl.Result{}, nil
 		}
 
 		if err := r.cronManager.UpdateCron(scheduledScaler); err != nil {
 			log.Error(err, "Couldn't update cron")
-			r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusFailed, "Scheduled Scaler is failed", tmaxiov1.InternalLogicError)
+			if err = apimanager.UpdateStatus(r.Client, scheduledScaler, tmaxiov1.ScheduledScalerStatus{
+				Phase:   tmaxiov1.StatusFailed,
+				Message: "Scheduled Scaler is failed",
+				Reason:  tmaxiov1.InternalLogicError,
+			}); err != nil {
+				log.Error(err, "Updating status failed")
+				return ctrl.Result{}, nil
+			}
 			return ctrl.Result{}, err
 		}
 
 		log.Info("Reconciling done")
-		r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusRunning, "Scheduled Scaler is running", tmaxiov1.ReconcileDone)
+		if err := apimanager.UpdateStatus(r.Client, scheduledScaler, tmaxiov1.ScheduledScalerStatus{
+			Phase:   tmaxiov1.StatusRunning,
+			Message: "Scheduled Scaler is running",
+			Reason:  tmaxiov1.ReconcileDone,
+		}); err != nil {
+			log.Error(err, "Updating status failed")
+			return ctrl.Result{}, nil
+		}
 	} else {
-		if !r.cronManager.IsEqual(scheduledScaler) {
-			r.updateStatus(r.Client, scheduledScaler, tmaxiov1.StatusUpdating, "Scheduled Scaler is running", tmaxiov1.NeedToReconcile)
+		// In else case (Running status), check if scsc is modified. If it's modified, update status to Updating to reconcile again
+		if r.cache.HasChanged(scheduledScaler) {
+			if err := apimanager.UpdateStatus(r.Client, scheduledScaler, tmaxiov1.ScheduledScalerStatus{
+				Phase:   tmaxiov1.StatusUpdating,
+				Message: "Scheduled Scaler is running",
+				Reason:  tmaxiov1.NeedToReconcile,
+			}); err != nil {
+				log.Error(err, "Updating status failed")
+				return ctrl.Result{}, nil
+			}
 			return ctrl.Result{}, nil
 		}
 	}
@@ -117,25 +178,11 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	return ctrl.Result{}, nil
 }
 
+// Init is for initiating member components: cron manager and cache
 func (r *ScheduledScalerReconciler) Init() *ScheduledScalerReconciler {
 	r.cronManager = cron.NewCronManager(r.Client)
+	r.cache = cache.New()
 	return r
-}
-
-func (r *ScheduledScalerReconciler) updateStatus(cl client.Client, origin *tmaxiov1.ScheduledScaler, status tmaxiov1.Status, msg string, reason tmaxiov1.Reason) error {
-	originObject := client.MergeFrom(origin)
-	patch := origin.DeepCopy()
-	patch.Status = tmaxiov1.ScheduledScalerStatus{
-		Phase:   status,
-		Message: msg,
-		Reason:  reason,
-	}
-
-	if err := r.Client.Status().Patch(context.TODO(), patch, originObject); err != nil {
-		return fmt.Errorf("Couldn't update status: %v", err)
-	}
-
-	return nil
 }
 
 func (r *ScheduledScalerReconciler) SetupWithManager(mgr ctrl.Manager) error {

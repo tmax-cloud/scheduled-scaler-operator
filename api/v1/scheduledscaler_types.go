@@ -58,6 +58,7 @@ type ScheduledScalerStatus struct {
 // +kubebuilder:resource:path=scheduledscalers,scope=Namespaced,shortName=scsc
 // +kubebuilder:printcolumn:name="TARGET",type=string,JSONPath=`.spec.target.name`
 // +kubebuilder:printcolumn:name="STATUS",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="REASON",type=string,JSONPath=`.status.reason`
 // +kubebuilder:printcolumn:name="AGE",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ScheduledScaler is the Schema for the scheduledscalers API

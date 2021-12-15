@@ -3,10 +3,10 @@ package validator
 import tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
 
 type Validator struct {
-	source *tmaxiov1.ScheduledScaler
+	source tmaxiov1.ScheduledScaler
 }
 
-func NewValidator(source *tmaxiov1.ScheduledScaler) *Validator {
+func NewValidator(source tmaxiov1.ScheduledScaler) *Validator {
 	return &Validator{
 		source: source,
 	}
