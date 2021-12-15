@@ -1,7 +1,7 @@
 package scaler
 
 import (
-	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/hpamanager"
+	"github.com/tmax-cloud/scheduled-scaler-operator/internal/k8s"
 )
 
 // RangeScaler is ..
@@ -11,7 +11,7 @@ type RangeScaler struct {
 
 func (s *RangeScaler) Run() {
 	logger.Info("RangeScaler start running")
-	if err := hpamanager.UpdateHpa(s.cl, &hpamanager.HpaOptions{
+	if err := k8s.UpdateHpa(s.cl, &k8s.HpaValidationOptions{
 		Namespace:           s.namespace,
 		Target:              s.target,
 		ScheduledScalerName: s.scheduledScaler,

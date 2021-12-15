@@ -1,4 +1,4 @@
-package internal
+package k8s
 
 import (
 	"context"

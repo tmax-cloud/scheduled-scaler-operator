@@ -3,8 +3,7 @@ package scaler
 import (
 	"context"
 
-	"github.com/tmax-cloud/scheduled-scaler-operator/internal"
-	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/hpamanager"
+	"github.com/tmax-cloud/scheduled-scaler-operator/internal/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -15,12 +14,12 @@ type FixedScaler struct {
 
 func (s *FixedScaler) Run() {
 	logger.Info("FixedScaler start running")
-	if err := hpamanager.DeleteHpa(s.cl, hpamanager.GetHpaName(s.scheduledScaler), s.namespace); err != nil {
+	if err := k8s.DeleteHpa(s.cl, k8s.GetHpaName(s.scheduledScaler), s.namespace); err != nil {
 		logger.Error(err, "Cleaning HPA failed in FixedScaler")
 		return
 	}
 	replicas := s.schedule.DeepCopy().Replicas
-	targetDeploy, err := internal.GetTargetDeployment(s.cl, s.target, s.namespace)
+	targetDeploy, err := k8s.GetTargetDeployment(s.cl, s.target, s.namespace)
 	if err != nil {
 		logger.Error(err, "Getting deployment error in FixedScaler")
 		return

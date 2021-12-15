@@ -1,12 +1,12 @@
 package validator
 
-import tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
+import scscv1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
 
 type Validator struct {
-	source tmaxiov1.ScheduledScaler
+	source scscv1.ScheduledScaler
 }
 
-func NewValidator(source tmaxiov1.ScheduledScaler) *Validator {
+func NewValidator(source scscv1.ScheduledScaler) *Validator {
 	return &Validator{
 		source: source,
 	}
@@ -28,7 +28,7 @@ func (v *Validator) Validate() bool {
 	return true
 }
 
-func (v *Validator) fixedScheduleValidate(schedule tmaxiov1.Schedule) bool {
+func (v *Validator) fixedScheduleValidate(schedule scscv1.Schedule) bool {
 	if schedule.Replicas == nil {
 		return false
 	}
@@ -40,7 +40,7 @@ func (v *Validator) fixedScheduleValidate(schedule tmaxiov1.Schedule) bool {
 	return true
 }
 
-func (v *Validator) rangeScheduleValidate(schedule tmaxiov1.Schedule) bool {
+func (v *Validator) rangeScheduleValidate(schedule scscv1.Schedule) bool {
 	if schedule.Replicas != nil {
 		return false
 	}

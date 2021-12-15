@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
+	scscv1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -62,7 +62,7 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = tmaxiov1.AddToScheme(scheme.Scheme)
+	err = scscv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
