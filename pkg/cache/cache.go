@@ -34,7 +34,12 @@ func (c *ScheduledScalerCacheImpl) Put(scsc *scscv1.ScheduledScaler) error {
 }
 
 func (c *ScheduledScalerCacheImpl) Get(scsc *scscv1.ScheduledScaler) *scscv1.ScheduledScaler {
-	return c.cached[apimanager.GetNamespacedName(*scsc)]
+	val, exist := c.cached[apimanager.GetNamespacedName(*scsc)]
+	if !exist {
+		return nil
+	} else {
+		return val
+	}
 }
 
 func (c *ScheduledScalerCacheImpl) Remove(scsc *scscv1.ScheduledScaler) {

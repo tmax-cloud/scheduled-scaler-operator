@@ -10,7 +10,7 @@ type ValidatorImpl struct {
 	source scscv1.ScheduledScaler
 }
 
-func NewValidator(source scscv1.ScheduledScaler) Validator {
+func New(source scscv1.ScheduledScaler) Validator {
 	return &ValidatorImpl{
 		source: source,
 	}
