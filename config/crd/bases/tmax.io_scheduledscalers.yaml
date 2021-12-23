@@ -15,6 +15,9 @@ spec:
   - JSONPath: .status.phase
     name: STATUS
     type: string
+  - JSONPath: .status.reason
+    name: REASON
+    type: string
   - JSONPath: .metadata.creationTimestamp
     name: AGE
     type: date
