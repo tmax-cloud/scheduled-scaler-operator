@@ -1,7 +1,7 @@
 package scaler
 
 import (
-	tmaxiov1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
+	scscv1 "github.com/tmax-cloud/scheduled-scaler-operator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -10,7 +10,7 @@ var logger = logf.Log.WithName("scaler")
 
 // Scaler is ...
 type Scaler interface {
-	Schedule() tmaxiov1.Schedule
+	Schedule() scscv1.Schedule
 	Run()
 }
 
@@ -18,15 +18,15 @@ type ScalerImpl struct {
 	scheduledScaler string
 	target          string
 	namespace       string
-	schedule        tmaxiov1.Schedule
+	schedule        scscv1.Schedule
 	cl              client.Client
 }
 
-func (s *ScalerImpl) Schedule() tmaxiov1.Schedule {
+func (s *ScalerImpl) Schedule() scscv1.Schedule {
 	return s.schedule
 }
 
-func NewScaler(cl client.Client, name, namespace, targetDeploy string, schedule tmaxiov1.Schedule) (Scaler, error) {
+func NewScaler(cl client.Client, name, namespace, targetDeploy string, schedule scscv1.Schedule) (Scaler, error) {
 	var scaler Scaler
 	scalerImpl := ScalerImpl{
 		scheduledScaler: name,

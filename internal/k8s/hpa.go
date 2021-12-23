@@ -1,4 +1,4 @@
-package hpamanager
+package k8s
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type HpaOptions struct {
+type HpaValidationOptions struct {
 	Namespace           string
 	Target              string
 	ScheduledScalerName string
@@ -20,7 +20,7 @@ type HpaOptions struct {
 	MaxReplicas         *int32
 }
 
-func (o *HpaOptions) validate() bool {
+func (o *HpaValidationOptions) validate() bool {
 	if o.Namespace == "" ||
 		o.Target == "" ||
 		o.ScheduledScalerName == "" ||
@@ -47,7 +47,7 @@ func GetHpa(cl client.Client, name, namespace string, hpa *autov2beta2.Horizonta
 	return true, nil
 }
 
-func UpdateHpa(cl client.Client, options *HpaOptions) error {
+func UpdateHpa(cl client.Client, options *HpaValidationOptions) error {
 	if !options.validate() {
 		return fmt.Errorf("Required options validation failed in CreateHpa")
 	}
