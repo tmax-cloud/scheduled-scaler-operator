@@ -36,15 +36,16 @@ func GetHpaName(scheduledScalerName string) string {
 	return fmt.Sprintf("%s-hpa", scheduledScalerName)
 }
 
-func GetHpa(cl client.Client, name, namespace string, hpa *autov2beta2.HorizontalPodAutoscaler) (bool, error) {
+func GetHpa(cl client.Client, name, namespace string) (*autov2beta2.HorizontalPodAutoscaler, error) {
+	hpa := &autov2beta2.HorizontalPodAutoscaler{}
 	if err := cl.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, hpa); err != nil {
 		if errors.IsNotFound(err) {
-			return false, nil
+			return nil, nil
 		} else {
-			return false, fmt.Errorf("Getting HPA failed")
+			return nil, fmt.Errorf("Getting HPA failed")
 		}
 	}
-	return true, nil
+	return hpa, nil
 }
 
 func UpdateHpa(cl client.Client, options *HpaValidationOptions) error {
@@ -53,10 +54,10 @@ func UpdateHpa(cl client.Client, options *HpaValidationOptions) error {
 	}
 
 	hpaName := GetHpaName(options.ScheduledScalerName)
-	hpa := &autov2beta2.HorizontalPodAutoscaler{}
-	if ok, err := GetHpa(cl, hpaName, options.Namespace, hpa); err != nil {
+	hpa, err := GetHpa(cl, hpaName, options.Namespace)
+	if err != nil {
 		return fmt.Errorf("Getting HPA failed in UpdateHPA")
-	} else if ok {
+	} else if hpa != nil {
 		newHpa := hpa.DeepCopy()
 		newHpa.Spec.MinReplicas = options.MinReplicas
 		newHpa.Spec.MaxReplicas = *options.MaxReplicas
@@ -104,10 +105,10 @@ func UpdateHpa(cl client.Client, options *HpaValidationOptions) error {
 }
 
 func DeleteHpa(cl client.Client, name, namespace string) error {
-	hpa := &autov2beta2.HorizontalPodAutoscaler{}
-	if ok, err := GetHpa(cl, name, namespace, hpa); err != nil {
+	hpa, err := GetHpa(cl, name, namespace)
+	if err != nil {
 		return fmt.Errorf("Getting Hpa failed in DeleteHpa")
-	} else if ok {
+	} else if hpa != nil {
 		if err = cl.Delete(context.Background(), hpa); err != nil {
 			return fmt.Errorf("Delete Hpa failed by: %v", err)
 		}
