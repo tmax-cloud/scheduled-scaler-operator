@@ -28,7 +28,7 @@ func NewCronManager(cl client.Client) CronManager {
 }
 
 func (m *CronManagerImpl) UpdateCron(scheduledScaler *scscv1.ScheduledScaler) error {
-	key := fmt.Sprintf("%s-%s", scheduledScaler.Namespace, scheduledScaler.Name)
+	key := apimanager.GetNamespacedName(*scheduledScaler)
 	previousCron, exist := m.scheduleCron[key]
 	if exist {
 		previousCron.Stop()
