@@ -33,6 +33,8 @@ import (
 	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/cron"
 )
 
+const finalizer = "finalizer.scheduledscaler.tmax.io"
+
 // ScheduledScalerReconciler reconciles a ScheduledScaler object
 type ScheduledScalerReconciler struct {
 	client.Client
@@ -76,21 +78,20 @@ func (r *ScheduledScalerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	}()
 
 	// handle finalizer to check deleting event
-	myFinalizerName := "finalizer.scheduledscaler.tmax.io"
 	if scheduledScaler.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
+		if !util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, finalizer) {
 			// add finalizer if not set to remove cron after deleting CR
-			scheduledScaler.ObjectMeta.Finalizers = append(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
+			scheduledScaler.ObjectMeta.Finalizers = append(scheduledScaler.ObjectMeta.Finalizers, finalizer)
 			if err := r.Update(ctx, scheduledScaler); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
-		if util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName) {
+		if util.ContainsString(scheduledScaler.ObjectMeta.Finalizers, finalizer) {
 			isDeleting = true // set deleting flag to remove scsc from cache
 			log.Info("deleting CR")
 			r.cronManager.RemoveCron(scheduledScaler) // remove cron of scsc
-			scheduledScaler.ObjectMeta.Finalizers = util.RemoveString(scheduledScaler.ObjectMeta.Finalizers, myFinalizerName)
+			scheduledScaler.ObjectMeta.Finalizers = util.RemoveString(scheduledScaler.ObjectMeta.Finalizers, finalizer)
 			if err := r.Update(ctx, scheduledScaler); err != nil {
 				return ctrl.Result{}, err
 			}
