@@ -34,5 +34,5 @@ func UpdateStatus(cl client.Client, scsc *scscv1.ScheduledScaler, status scscv1.
 }
 
 func Validate(scsc *scscv1.ScheduledScaler) bool {
-	return validator.NewValidator(*scsc).Validate()
+	return validator.New(*scsc).Validate()
 }

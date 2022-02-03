@@ -10,19 +10,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type CronManager struct {
-	client.Client
-	scheduleCron map[string]*Cron
+type CronManager interface {
+	UpdateCron(*scscv1.ScheduledScaler) error
+	RemoveCron(*scscv1.ScheduledScaler) error
 }
 
-func NewCronManager(cl client.Client) *CronManager {
-	return &CronManager{
+type CronManagerImpl struct {
+	client.Client
+	scheduleCron map[string]Cron
+}
+
+func NewCronManager(cl client.Client) CronManager {
+	return &CronManagerImpl{
 		Client:       cl,
-		scheduleCron: make(map[string]*Cron),
+		scheduleCron: make(map[string]Cron),
 	}
 }
 
-func (m *CronManager) UpdateCron(scheduledScaler *scscv1.ScheduledScaler) error {
+func (m *CronManagerImpl) UpdateCron(scheduledScaler *scscv1.ScheduledScaler) error {
 	key := fmt.Sprintf("%s-%s", scheduledScaler.Namespace, scheduledScaler.Name)
 	previousCron, exist := m.scheduleCron[key]
 	if exist {
@@ -56,7 +61,7 @@ func (m *CronManager) UpdateCron(scheduledScaler *scscv1.ScheduledScaler) error 
 	return nil
 }
 
-func (m *CronManager) RemoveCron(scsc *scscv1.ScheduledScaler) error {
+func (m *CronManagerImpl) RemoveCron(scsc *scscv1.ScheduledScaler) error {
 	key := apimanager.GetNamespacedName(*scsc)
 	targetCron, ok := m.scheduleCron[key]
 	if !ok {

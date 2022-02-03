@@ -7,54 +7,60 @@ import (
 	"github.com/tmax-cloud/scheduled-scaler-operator/pkg/scaler"
 )
 
-type Cron struct {
-	timeZone string
-	cronImpl *robfigCron.Cron
-	scalers  []scaler.Scaler
+type Cron interface {
+	Push(scaler.Scaler)
+	Start() error
+	Stop()
 }
 
-func NewCron(timeZone string) *Cron {
-	return &Cron{
+type CronImpl struct {
+	timeZone     string
+	internalCron *robfigCron.Cron
+	scalers      []scaler.Scaler
+}
+
+func NewCron(timeZone string) Cron {
+	return &CronImpl{
 		timeZone: timeZone,
 		scalers:  make([]scaler.Scaler, 0),
 	}
 }
 
-func (c *Cron) Push(scaler scaler.Scaler) {
+func (c *CronImpl) Push(scaler scaler.Scaler) {
 	c.scalers = append(c.scalers, scaler)
 }
 
-func (c *Cron) Start() error {
+func (c *CronImpl) Start() error {
 	if err := c.init(); err != nil {
 		return err
 	}
 
-	c.cronImpl.Start()
+	c.internalCron.Start()
 	return nil
 }
 
-func (c *Cron) init() error {
-	if c.cronImpl != nil {
-		c.cronImpl.Stop()
+func (c *CronImpl) init() error {
+	if c.internalCron != nil {
+		c.internalCron.Stop()
 	}
 
 	if c.timeZone == "none" {
-		c.cronImpl = robfigCron.New()
+		c.internalCron = robfigCron.New()
 	} else {
 		tz, err := time.LoadLocation(c.timeZone)
 		if err != nil {
 			return err
 		}
 
-		c.cronImpl = robfigCron.NewWithLocation(tz)
+		c.internalCron = robfigCron.NewWithLocation(tz)
 	}
 
 	for _, scaler := range c.scalers {
-		c.cronImpl.AddJob(scaler.Schedule().Runat, scaler)
+		c.internalCron.AddJob(scaler.Schedule().Runat, scaler)
 	}
 	return nil
 }
 
-func (c *Cron) Stop() {
-	c.cronImpl.Stop()
+func (c *CronImpl) Stop() {
+	c.internalCron.Stop()
 }
