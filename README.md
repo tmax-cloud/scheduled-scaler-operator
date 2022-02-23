@@ -1,6 +1,14 @@
 ## Overview
 The Scheduled-Scaler operator is a controller for CRD ScheduledScaler. With ScheduledScaler resource, you can add Pod scaling schedules in k8s.
 
+## Contents
+- [Overview](#overview)
+- [Contents](#contents)
+- [Install](#install)
+- [Uninstall](#uninstall)
+- [Usage](#usage)
+- [Appendix](#appendix)
+
 ## Install
 1. On your local machine, clone this repository
    ```bash
@@ -59,3 +67,6 @@ The Scheduled-Scaler operator is a controller for CRD ScheduledScaler. With Sche
    `range` type of scaling creates HPA for the target `Deployment`. Thus, you need to specify the range of replicas from `minReplicas` to `maxReplicas`
 
 4. spec.schedule is the list of scaling schedule. These schedules run independently
+
+## Appendix
+- [Architecture](./docs/architecture.md)
