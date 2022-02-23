@@ -26,7 +26,7 @@ func (s *ScalerImpl) Schedule() scscv1.Schedule {
 	return s.schedule
 }
 
-func NewScaler(cl client.Client, name, namespace, targetDeploy string, schedule scscv1.Schedule) (Scaler, error) {
+func New(cl client.Client, name, namespace, targetDeploy string, schedule scscv1.Schedule) (Scaler, error) {
 	var scaler Scaler
 	scalerImpl := ScalerImpl{
 		scheduledScaler: name,
